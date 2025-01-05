@@ -1,4 +1,4 @@
-# Email Analyzer - README
+# **Email Analyzer - README**
 
 ## **主题**
 
@@ -62,16 +62,40 @@ Email Analyzer 的主要目标是：
 ## **功能描述**
 
 ### **1. 连接邮箱**
-通过 IMAP 协议连接到邮箱，并支持筛选“今天”、“本周”或“本月”的邮件。程序会从指定邮箱中自动提取符合日期范围的邮件，确保邮件能够实时获取并进行分析。
+程序通过 IMAP 协议连接到指定邮箱，并支持筛选“今天”、“本周”或“本月”的邮件。用户可以指定日期范围，程序会从指定邮箱中自动提取符合日期范围的邮件，确保邮件能够实时获取并进行分析。
+
+#### **连接代码**：
+```python
+mail = imaplib.IMAP4_SSL(imap_server, imap_port)
+mail.login(email_address, email_password)
+mail.select('INBOX')
+```
+上述代码通过IMAP协议连接到邮箱，登录并选择收件箱（INBOX）。
 
 ### **2. 提取邮件内容**
 - 自动提取邮件的基本信息，如：主题、发件人、收件人、时间等。
 - 支持 HTML 格式邮件的解析与转换，通过 `BeautifulSoup` 和 `html2text` 库提取清晰的文本内容。
 
-### **3. 智能分析与多语言支持**
-通过大语言模型，我们对邮件内容进行智能分析。特别注意，程序已适配巴西葡萄牙语，使得该语言的邮件内容能够被正确理解与分析。
+#### **解析邮件内容代码**：
+```python
+if email_message.is_multipart():
+    for part in email_message.walk():
+        if part.get_content_type() == "text/html":
+            html_content = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8', errors='ignore')
+            soup = BeautifulSoup(html_content, 'html.parser')
+            h = html2text.HTML2Text()
+            h.ignore_links = True
+            h.ignore_images = True
+            h.body_width = 0
+            email_data['content'] = process_content(h.handle(str(soup)))
+            break
+```
+这段代码遍历邮件的所有部分，如果邮件包含HTML内容，则提取并转换为纯文本。
 
-#### **示例代码**：
+### **3. 智能分析与多语言支持**
+通过大语言模型，我们对邮件内容进行智能分析。特别注意，程序已适配巴西葡萄牙语，使得该语言的邮件内容能够被正确理解与分析。以下是处理邮件头部的代码示例：
+
+#### **解码邮件头部**：
 ```python
 def decode_str(s):
     try:
@@ -89,17 +113,15 @@ def decode_str(s):
     except Exception as e:
         return str(s)
 ```
-该代码块用于解码邮件的主题、发件人等字段，确保即使是巴西葡萄牙语邮件也能够被正确解析。
+`decode_str`函数用于解码邮件头部的编码字段（如发件人、主题等），确保巴西葡萄牙语邮件等非ASCII邮件能够被正确解析。
 
-#### **巴西葡萄牙语邮件的特别支持**：
-在分析邮件时，我们会将非中文邮件（如巴西葡萄牙语邮件）翻译为中文，并按照需求生成结构化的分析报告。以下是分析请求的代码示例：
-
+#### **使用大语言模型分析邮件**：
 ```python
 def analyze_email_with_llm(email_data):
     """使用大模型分析邮件内容"""
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer YOUR_API_KEY',
+        'Authorization': f'Bearer {API_KEY}',
     }
 
     prompt = f"""
@@ -140,6 +162,39 @@ def analyze_email_with_llm(email_data):
 
 ### **4. 多轮交互**
 支持逐封邮件分析，用户可以在分析一封邮件后选择是否继续处理下一封邮件。通过按回车键，用户可以轻松完成所有邮件的处理。
+
+---
+
+## **代码解析**
+
+在此部分，我们将逐步解析程序中的核心函数，帮助用户理解代码实现。
+
+### **`decode_str` 函数**
+该函数用于解码邮件头部的字段，如发件人、主题等。解码后，能够处理包含非ASCII字符的邮件（如巴西葡萄牙语邮件），并确保其能够显示正确的文字。
+
+#### **工作原理**：
+- 使用 `decode_header` 解码邮件字段。
+- 处理字节数据和字符集，确保正确解码。
+
+### **`process_content` 函数**
+该函数用于清理邮件正文内容，去除多余的空格和换行符，使邮件内容更加简洁和易于分析。
+
+#### **工作原理**：
+- 使用正则表达式清除多余的空白字符和换行符。
+
+### **`analyze_email_with_llm` 函数**
+该函数使用大语言模型分析邮件内容，并生成结构化的分析报告。它将邮件内容、发件人、主题等信息传递给模型，获取邮件的关键信息，并生成简明的报告。
+
+#### **工作原理**：
+- 通过 HTTP 请求与大语言模型 API 交互。
+- 根据邮件内容生成分析报告，输出重要任务、截止日期等信息。
+
+### **`get_emails` 函数**
+该函数通过 IMAP 协议连接邮箱，获取并解析邮件内容。它支持按日期范围（如今天、本周、本月）筛选邮件，并提取邮件的文本内容。
+
+#### **工作原理**：
+- 使用 `imaplib` 连接到邮箱。
+- 提取邮件的主题、发件人、收件人等信息，并解析邮件正文。
 
 ---
 
