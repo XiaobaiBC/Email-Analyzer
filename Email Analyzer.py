@@ -13,8 +13,8 @@ import json  # 处理JSON数据
 # 配置邮箱相关信息
 邮箱 =   # 邮箱地址
 密码 =   # 邮箱密码
-IMAP服务器地址 =    # IMAP服务器地址
-IMAP服务器端口 =    # IMAP服务器端口（SSL加密）
+IMAP服务器地址 =   # IMAP服务器地址
+IMAP服务器端口 =   # IMAP服务器端口（SSL加密）
 API_KEY =   # 用于调用分析API的API密钥
 
 # 解码邮件头信息（如发件人、主题等）
@@ -46,7 +46,7 @@ def process_content(content):
     return content
 
 # 使用大模型分析邮件内容
-def analyze_email_with_llm(email_data):
+def analyze_email_with_Xiaobai(email_data):
     """使用大模型分析邮件内容"""
     headers = {
         'Content-Type': 'application/json',  # 设置内容类型为JSON
@@ -233,7 +233,7 @@ def get_emails(date_range='today'):
             print("-"*50)
 
             # 使用大模型分析邮件内容
-            analyze_email_with_llm(email_data)
+            analyze_email_with_Xiaobai(email_data)
 
             # 如果还有下一封邮件，等待用户确认继续
             if index < total_emails:
