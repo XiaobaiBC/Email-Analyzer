@@ -1,8 +1,4 @@
-# **Email Analyzer - README**
-
-## **主题**
-
-Email Analyzer: 高效邮件分析助手
+## Email Analyzer: 高效邮件分析助手
 
 ---
 
