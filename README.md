@@ -62,8 +62,11 @@ Email Analyzer 的主要目标是：
 
 #### **连接代码**：
 ```python
+# 使用SSL连接到IMAP服务器
 mail = imaplib.IMAP4_SSL(imap_server, imap_port)
-mail.login(email_address, email_password)
+mail.login(email_address, email_password)  # 登录邮箱
+
+# 选择收件箱
 mail.select('INBOX')
 ```
 上述代码通过IMAP协议连接到邮箱，登录并选择收件箱（INBOX）。
@@ -74,16 +77,20 @@ mail.select('INBOX')
 
 #### **解析邮件内容代码**：
 ```python
+# 获取邮件内容
 if email_message.is_multipart():
+    # 如果邮件是多部分的，遍历每个部分
     for part in email_message.walk():
-        if part.get_content_type() == "text/html":
+        if part.get_content_type() == "text/html":  # 只处理HTML类型的部分
+            # 解码HTML内容
             html_content = part.get_payload(decode=True).decode(part.get_content_charset() or 'utf-8', errors='ignore')
+            # 使用BeautifulSoup解析HTML
             soup = BeautifulSoup(html_content, 'html.parser')
             h = html2text.HTML2Text()
-            h.ignore_links = True
-            h.ignore_images = True
-            h.body_width = 0
-            email_data['content'] = process_content(h.handle(str(soup)))
+            h.ignore_links = True  # 忽略链接
+            h.ignore_images = True  # 忽略图片
+            h.body_width = 0  # 不进行换行
+            email_data['content'] = process_content(h.handle(str(soup)))  # 转换并清理HTML内容
             break
 ```
 这段代码遍历邮件的所有部分，如果邮件包含HTML内容，则提取并转换为纯文本。
@@ -93,66 +100,119 @@ if email_message.is_multipart():
 
 #### **解码邮件头部**：
 ```python
+# 解码邮件头信息（如发件人、主题等）
 def decode_str(s):
     try:
+        # decode_header解析邮件头
         decoded_list = decode_header(s)
         result = ""
+        # 遍历解码结果
         for decoded_str, charset in decoded_list:
             if isinstance(decoded_str, bytes):
+                # 如果是字节类型，使用指定的字符集解码
                 if charset:
                     result += decoded_str.decode(charset)
                 else:
+                    # 如果没有指定字符集，使用utf-8解码并忽略错误
                     result += decoded_str.decode('utf-8', errors='ignore')
             else:
-                result += str(decoded_str)
+                result += str(decoded_str)  # 如果是字符串类型，直接加到结果中
         return result
     except Exception as e:
+        # 捕获异常并返回原始字符串
         return str(s)
 ```
 `decode_str`函数用于解码邮件头部的编码字段（如发件人、主题等），确保巴西葡萄牙语邮件等非ASCII邮件能够被正确解析。
 
 #### **使用大语言模型分析邮件**：
 ```python
+# 使用大模型分析邮件内容
 def analyze_email_with_llm(email_data):
     """使用大模型分析邮件内容"""
     headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {API_KEY}',
+        'Content-Type': 'application/json',  # 设置内容类型为JSON
+        'Authorization': f'Bearer {API_KEY}',  # 设置授权信息，使用Bearer Token
     }
 
+    # 构建提示语，要求模型分析邮件内容
     prompt = f"""
-    你是一位专业的“邮件分析助手”，擅长提取邮件中的关键信息并生成高效、简明的分析报告。请根据以下要求分析邮件内容并提供结构化输出：
+    你是一位巴西专业的“邮件分析助手”，擅长提取邮件中的关键信息并生成高效、简明的分析报告,来帮助用户进行快速掌握每个邮件。请根据以下要求分析邮件内容并提供结构化输出：
 
     ---
 
-    ### **分析报告格式**
+    ### 分析目标
+    1. 提取邮件的核心内容和重要信息。
+    2. 评估邮件的重要性，并根据内容提供处理建议。
+    3. 如果邮件包含非中文内容，请翻译核心信息为中文。
+
+    ---
+
+    ### 分析报告格式
     1. **邮件概要**
        - 主要内容：[总结邮件的核心内容，非中文内容需翻译]
        - 重要细节：[标注金额、截止日期、会议时间等关键信息]
-    ...
+
+    2. **重要程度**
+       - 优先级：[高/中/低]
+       - 理由：[简述优先级的原因，例如任务紧急性或关键性]
+
+    3. 处理建议
+       - 是否需要立即处理：[是/否]
+       - 建议完成时间：[具体建议时间]
+       - 建议步骤：[清晰列出处理的具体步骤]
+
+    4. 注意事项
+       - [列出需要特别注意的地方，如截止日期、金额、参与人员等]
+
+    ---
+
+    邮件详情
+    - 发件人: {email_data['from']}
+    - 收件人: {email_data['to']}
+    - 主题: {email_data['subject']}
+    - 时间: {email_data['date']}
+
+    邮件正文:
+    {email_data['content']}
     """
 
+    # 将构造的JSON数据发送给API
     json_data = {
-        'model': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+        'model': 'meta-llama/Meta-Llama-3.1-70B-Instruct',  # 使用的模型
         'messages': [
             {
-                'role': 'user',
-                'content': prompt,
+                'role': 'user',  # 设置请求角色为用户
+                'content': prompt,  # 请求内容为上面构造的提示语
             },
         ],
     }
 
     try:
+        # 向API发送POST请求
         response = requests.post(
-            'https://api.deepinfra.com/v1/openai/chat/completions', 
-            headers=headers, 
-            json=json_data
+            'https://api.deepinfra.com/v1/openai/chat/completions',  # API的URL
+            headers=headers,  # 请求头
+            json=json_data  # 请求数据
         )
-        response_json = response.json()
+        response_json = response.json()  # 解析JSON响应
+
         # 打印分析结果
-        print(response_json['choices'][0]['message']['content'])
+        print("\n📧 邮件分析报告")
+        print("="*50)
+        print(response_json['choices'][0]['message']['content'])  # 显示邮件分析内容
+        print("="*50)
+
+        # 打印API使用统计
+        usage = response_json['usage']
+        cost_usd = usage['estimated_cost']
+        print(f"\n📊 API使用情况")
+        print(f"总Token数: {usage['total_tokens']} (输入: {usage['prompt_tokens']}, 输出: {usage['completion_tokens']})")
+        print(f"成本: ${cost_usd:.6f} USD")
+
     except Exception as e:
+        # 如果API请求发生异常，打印错误信息
         print(f"分析过程中发生错误: {str(e)}")
+
 ```
 该代码在收到邮件后，生成一个格式化的分析请求，确保巴西葡萄牙语等非中文内容被正确处理，并返回结构化报告。
 
@@ -194,8 +254,39 @@ def analyze_email_with_llm(email_data):
 
 ---
 
+## 所调用的大模型
+
+### **Meta Llama 3.1大语言模型**
+
+本项目调用了**Meta Llama 3.1**系列大语言模型（LLMs），这是一组由Meta公司开发的预训练且经过指令微调的生成式文本模型。Llama 3.1模型支持多个规模版本，包括8B、70B和405B参数规模，适用于多种多语言对话任务，并在各类基准测试中表现卓越。
+
+#### **模型架构与基础**
+
+Llama 3.1使用自回归的Transformer架构，并结合了监督式微调（SFT）和强化学习（RLHF）。该模型特别设计用于多语言处理，在此处为针对葡萄牙语进行特调。
+
+#### **训练数据与性能表现**
+
+Llama 3.1模型基于大规模的数据集进行训练，数据来源于多个公开的互联网资源。它在多个标准基准测试中表现出色，特别是在**MMLU（Massive Multitask Language Understanding）**、**推理能力**等任务上，展示了其强大的能力：
+
+- **MMLU基准**：Llama 3.1 70B模型在MMLU基准上取得了83.6%的成绩，显著优于前代版本。
+- **推理任务**：在“ARC-Challenge”等推理任务中，Llama 3.1的70B和405B版本准确率分别为92.9%和96.1%。
+
+
+明白了！以下是一个更加简洁、实用且不那么隆重的 **README 结论**，突出了工具的核心功能和大语言模型的作用：
+
+---
+
 ## **结论**
 
-Email Analyzer 是一款高效的邮件处理工具，特别适合那些需要处理大量邮件并且面临多语言邮件（如巴西葡萄牙语）挑战的用户。通过结合 IMAP 协议、自然语言处理和大语言模型，Email Analyzer 不仅大大提高了邮件处理效率，还通过智能分析帮助用户快速识别邮件中的关键信息。未来，随着技术不断进步，我们还将继续拓展更多的功能，如情感分析、自动回复模板等，进一步提升用户体验。
+**Email Analyzer** 是一个高效的邮件处理工具，适合需要快速处理大量邮件的用户，特别是在面对多语言邮件（如巴西葡萄牙语）时，能够提供额外的帮助。通过结合 IMAP 协议和大语言模型（LLM），该工具能够自动提取邮件中的关键信息、评估邮件的重要性，并给出处理建议，从而提高邮件处理效率。
 
-通过运行 **Email Analyzer**，用户能够高效地处理邮件，避免遗漏重要信息，从而提升工作效率。
+### **大语言模型的作用**
+
+在 **Email Analyzer** 中，大语言模型起到了至关重要的作用。它不仅能够准确理解和分析邮件内容，还能：
+1. **理解多语言邮件**：特别是巴西葡萄牙语，确保邮件内容得到正确处理。
+2. **智能分析邮件**：根据邮件的内容和紧急性，自动评估优先级，并提供相应的处理建议。
+3. **生成简明报告**：帮助用户快速掌握邮件的关键点，避免遗漏重要信息。
+
+### **提升工作效率**
+
+使用 **Email Analyzer**，用户能够节省大量的时间，快速识别出重要的邮件，避免不必要的重复劳动。未来，我们也会根据用户反馈，继续优化功能，增加更多实用的邮件处理工具。
