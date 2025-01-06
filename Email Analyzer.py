@@ -97,10 +97,10 @@ def analyze_email_with_Xiaobai(email_data):
 
     # 将构造的JSON数据发送给API
     json_data = {
-        'model': 'meta-llama/Meta-Llama-3.1-70B-Instruct',  # 使用的模型
+        'model': 'meta-llama/Meta-Llama-3.1-70B-Instruct',  
         'messages': [
             {
-                'role': 'user',  # 设置请求角色为用户
+                'role': 'user',  
                 'content': prompt,  # 请求内容为上面构造的提示语
             },
         ],
